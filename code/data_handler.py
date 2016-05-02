@@ -2,7 +2,7 @@
 from scipy.sparse import lil_matrix
 import numpy as np
 import pdb
-
+from scipy.io import loadmat
 
 class data_handler(object):
     def __init__(self, rating_path, trust_path):
@@ -10,23 +10,29 @@ class data_handler(object):
         self.trust_path = trust_path
 
     def load_matrices(self):
-        R = lil_matrix((49291, 139739))
-        W = lil_matrix((49291, 49291))
-        f1 = open(self.rating_path)
-        f2 = open(self.trust_path)
-        for record in f1:
-            user_id, item_id, rating = map(lambda x:int(x), record.split())
-            R[user_id, item_id] = rating
-        f1.close()
-        for record in f2:
-            user1, user2, trust = map(lambda x:int(x), record.split())
-            W[user1, user2] = trust
-
+       # R = lil_matrix((49291, 139739))
+       # W = lil_matrix((49291, 49291))
+       # f1 = open(self.rating_path)
+       # f2 = open(self.trust_path)
+       # for record in f1:
+       #     user_id, item_id, rating = map(lambda x:int(x), record.split())
+       #     R[user_id, item_id] = rating
+       # f1.close()
+       # for record in f2:
+       #     user1, user2, trust = map(lambda x:int(x), record.split())
+       #     W[user1, user2] = trust
+        f = open(self.rating_path)
+        f1 = open(self.trust_path)
+        R = loadmat(f)
+        W = loadmat(f1)
+        R = R['rating_with_timestamp']
+        W = W['trust']
+      #  pdb.set_trace()
         return R, W
 
 if __name__ == "__main__":
-    data_handle = data_handler("../data/ratings_data.txt",
-                               "../data/trust_data.txt")
+    data_handle = data_handler("../data/rating.mat",
+                               "../data/trust.mat")
     R, W = data_handle.load_matrices()
-    pdb.set_trace()
+   # pdb.set_trace()
     print R.shape, W.shape
