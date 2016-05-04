@@ -25,6 +25,7 @@ class data_handler(object):
         # Selecting records with category id falling in 6 pre-defined categories
         # choosen in paper
         R = R[np.in1d(R[:, 2], cat_id)]
+        # Sorting based on time-stamp
         R = R[R[:, 5].argsort()]
         #pdb.set_trace()
         pf = np.zeros((n_prod + 1, n_cat + 1))
@@ -43,7 +44,6 @@ class data_handler(object):
             ratings = R[ids, 3]
             r[i, ids] = ratings
         # train-test split based on time-stamp
-        # Sorting based on time-stamp
         train_idx = int(0.7 * r.shape[0])
         #pdb.set_trace()
         R_train = r[:train_idx, :]
