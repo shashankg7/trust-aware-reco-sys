@@ -52,8 +52,7 @@ class data_handler(object):
             cat_rating = R[np.where(R[:,2] == cat), 3]
             mu[cat_map[cat]] = np.mean(cat_rating)
         # Sparse matrix, due to large memory requirement
-        # TO-DO : Look for a way to use R matrix only.
-        # FIX : use dtype=float32
+        # TO-DO : Works with large memory only, try with sparse matrix
         r = np.zeros((n_users+1, n_prod+1), dtype=np.float32)
         print r.shape
         #pdb.set_trace()
