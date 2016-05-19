@@ -47,11 +47,15 @@ class baseline_tensor(object):
         self.A = self.createA(self.n_users, self.n_cat)
         pdb.set_trace()
 
-    def model(self, alpha=0.1, l=0.1,lr_a=0.1, lr_b=0.1, lr_c=0.1, n_iter=100):
+    def cal_cost(self, E, l):
+        return np.sum(np.dot(E, E)) + l * np.sum(np.dot(self.B, self.B) + np.sum(np.dot(self.C, self.C)))
+
+    def model(self, alpha=0.1, l=0.1, lr_a=0.1, lr_b=0.1, lr_c=0.1, n_iter=100):
         # optimization routine
         self.R1 = np.zeros_like(self.R_train)
+        E = self.R_train 
         for iter in n_iter:
-            cost = self.calc_cost()
+            cost = self.calc_cost(E, l)
             for u in xrange(1, self.R1.shape[0]+1):
                 for i in xrange(1,self.R1.shape[1]+1):
                     # first part of Rcap sum
@@ -62,15 +66,26 @@ class baseline_tensor(object):
                     v = self.getNui(u,i)
                     t1 = np.dot(self.PF[i, :], np.dot(self.A[v, u, :], self.R_train[v, i]))
                     d = np.dot(self.PF[i, :], np.sum(self.A[v, u, :], axis=1))
+                    self.R1[u,i] += (1-alpha) * (t1/d)
+                    E[u, i] = self.R_train[u,i] - self.R1[u,i]
                     p = d
                     q = t1
-                    self.R1[u,i] += (1-alpha) * (t1/d)
-                    E = self.R_train[u,i] - self.R1[u,i]
-                    # Update part for b
-                    x = l * (B[u,:]/np.sum(self.PF[i,:])) + alpha * E
-                    self.B[u, :]- = lr_b * x
-                    self.C[i] -= lr_c * (E + l * self.C[i])
-                    grad_A =
+                    # Update part for B
+                    grad_B = l * (B[u,:]/np.sum(self.PF[i,:])) - alpha * E[u, i]
+                    self.B[u, :] -= lr_b * grad_B
+                    # Update part for c
+                    grad_c = -alpha * E[u, i] + l * self.C[i]
+                    self.C[i] -= lr_c * grad_c
+                    # Update part for A
+                    for v in xrange(1,self.R1.shape[0]+1)
+                        for k in self.A.shape[2]:
+                            grad_A = (alpha - 1) * E[u, i] * (self.PF[i, k] * R_train[v,i] * p - q * PF[i, k] )/(p * p)
+                            if A[v, u , k] - lr_a * grad_A < 0:
+                                A[v, u, k] = 0
+                            elif A[v, u , k] - lr_a * grad_A > 1:
+                                A[v, u, k] = 1
+                            else:
+                                A[v, u, k] -= lr_a * grad_A
 
 
 if __name__ == "__main__":
