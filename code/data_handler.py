@@ -42,7 +42,10 @@ class data_handler():
         for cat in cat_id:
             cat_rating = R_train[np.where(R_train[:, 2] == cat), 3]
             mu[cat] = np.mean(cat_rating)
+        #Converting R_train and R_test to dictionaries 
         pdb.set_trace()
+        R_train = dict(zip(zip(R_train[:, 0],R_train[:, 1]), R_train[:, 3]))
+        R_test = dict(zip(zip(R_test[:, 0],R_test[:, 1]), R_test[:, 3]))
         return R_train, R_test, prod_cat, mu
             
 if __name__ == "__main__":
