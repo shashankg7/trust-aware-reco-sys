@@ -1,79 +1,43 @@
+#! /usr/bin/env python
 
-from scipy.sparse import lil_matrix
 import numpy as np
-import pdb
 from scipy.io import loadmat
-import time
+import pdb
 
-# Index convention : index starts from 1 not 0
-
-
-class data_handler(object):
+class data_handler():
+    
     def __init__(self, rating_path, trust_path):
         self.rating_path = rating_path
         self.trust_path = trust_path
-        self.n_users = 0
-        self.n_prod = 0
-        self.n_cat = 0
-
-    def get_stats(self):
-        # Returns stats of data
-        return self.n_users, self.n_prod, self.n_cat
-
+        
     def load_matrices(self):
-        f = open(self.rating_path)
-        f1 = open(self.trust_path)
-        R = loadmat(f)
-        W = loadmat(f1)
+        # Loading Matrices from data
+        f1 = open(self.rating_path)
+        f2 = open(self.trust_path)
+        R = loadmat(f1)
+        W = loadmat(f2)
+        # Converting R and W from dictionary to array
         R = R['rating_with_timestamp']
         W = W['trust']
-        n_users = max(R[:, 0])
-        n_prod = max(R[:, 1])
-        n_cat = 6
-        self.n_users = n_users
-        self.n_prod = n_prod
-        self.n_cata = n_cat
-        cat_id = [7,8,9,10,11,19]
-        cat_map = {7:1, 8:2, 9:3, 10:4, 11:5, 19:6}
-        mu = np.zeros((n_cat + 1, 1))
-        # Selecting records with category id falling in 6 pre-defined categories
-        # choosen in paper
-        R = R[np.in1d(R[:, 2], cat_id)]
-        # Sorting based on time-stamp
+        # Selecting entries with the 6 categories given in the paper
+        cat_id = [7, 8, 9, 10, 11, 19]
+        R = R[np.in1d(R[:, 2],cat_id)]
         R = R[R[:, 5].argsort()]
-        #pdb.set_trace()
-        pf = np.zeros((n_prod + 1, n_cat + 1))
-        for i in xrange(1, n_prod + 1):
-            cat = R[R[:, 1] == i, 2]
-            cat = map(lambda x:cat_map[x], cat)
-            pf[i, cat] = 1
+        R_size = R.shape[0]
+        # Choosing 70% data for training and rest for testing
+        R_train = R[:R_size*0.7]
+        R_test = R[R_size*0.7:]
+        # Making all eligible Product-Category pairs
+        prod_cat = np.unique(R_train[:, 1:3])
+        # Making the mu matrix
+        mu = {}
         for cat in cat_id:
-            # all ratings from this category
-            cat_rating = R[np.where(R[:,2] == cat), 3]
-            mu[cat_map[cat]] = np.mean(cat_rating)
-        # Sparse matrix, due to large memory requirement
-        # TO-DO : Works with large memory only, try with sparse matrix
-        r = np.zeros((n_users+1, n_prod+1), dtype=np.float32)
-        print r.shape
-        #pdb.set_trace()
-        for i in xrange(1, n_users+1):
-            # for each user, product id's he rated
-            ids = R[R[:, 0] == i, 1]
-            ratings = R[ids, 3]
-            r[i, ids] = ratings
-        # train-test split based on time-stamp
-        train_idx = int(0.7 * r.shape[0])
-        #pdb.set_trace()
-        R_train = r[:train_idx, :]
-        R_test = r[train_idx:, :]
-        #pdb.set_trace()
-        return R_train, R_test, W, pf, mu
+            cat_rating = R_train[np.where(R_train[:, 2] == cat), 3]
+            mu[cat] = np.mean(cat_rating)
 
+        return R_train, R_test, prod_cat, mu
+            
 if __name__ == "__main__":
-    data_handle = data_handler("../data/rating.mat",
-                               "../data/trust.mat")
-    t = time.time()
-    R_t,R_test, W, PF = data_handle.load_matrices()
-    print time.time() - t
-   # pdb.set_trace()
-    print R_t.shape, W.shape
+    data = data_handler("../data/rating_with_timestamp.mat", "../data/trust.mat")
+    R_train, R_test, PF_pair, mu = data.load_matrices()
+    print "done"
