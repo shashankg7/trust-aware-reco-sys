@@ -9,7 +9,13 @@ class data_handler():
     def __init__(self, rating_path, trust_path):
         self.rating_path = rating_path
         self.trust_path = trust_path
-        
+        self.n_users = 0
+        self.n_prod = 0
+        self.n_cat = 6
+    
+    def get_stats(self):
+        return self.n_users, self.n_prod, self.n_cat
+
     def load_matrices(self):
         # Loading Matrices from data
         f1 = open(self.rating_path)
@@ -19,6 +25,8 @@ class data_handler():
         # Converting R and W from dictionary to array
         R = R['rating_with_timestamp']
         W = W['trust']
+        self.n_users = max(R[:, 0])
+        self.n_prod = max(R[:, 1])
         # Selecting entries with the 6 categories given in the paper
         cat_id = [7, 8, 9, 10, 11, 19]
         R = R[np.in1d(R[:, 2],cat_id)]
@@ -34,7 +42,7 @@ class data_handler():
         for cat in cat_id:
             cat_rating = R_train[np.where(R_train[:, 2] == cat), 3]
             mu[cat] = np.mean(cat_rating)
-
+        pdb.set_trace()
         return R_train, R_test, prod_cat, mu
             
 if __name__ == "__main__":
