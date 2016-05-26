@@ -64,10 +64,10 @@ class baseline_tensor():
         # Second part of Rcap
         n2 = 0
         d2 = 0
-        V = self.getNui(u, i)
+        self.V = self.getNui(u, i)
         for k in xrange(self.n_cat):
             if((i,cat_map[k]) in self.PF):
-                for v in V:
+                for v in self.V:
                     n2 += self.R_train_ui[v, i] * self.A[v, u, k]
                     d2 += np.sum(self.A[v, u, k])
         if d2 != 0:
@@ -77,7 +77,7 @@ class baseline_tensor():
         self.q = n2
         return Rcap
 
-    def model(self, alpha = 0.1, l = 0.1, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 10):
+    def model(self, alpha = 0.3, l = 0.05, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 10):
         # Optimization Routine
         self.Rcap = np.zeros_like(self.R_train_ui)
         cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
@@ -100,10 +100,9 @@ class baseline_tensor():
                 grad_b = -alpha * self.E[u, i] + l * (self.B[u, :]/d)
                 self.B[u, :] -= lr_b * grad_b
                 # Updating A
-                V = self.getNui(u, i)
                 for k in xrange(self.n_cat):
                     if (i,cat_map[k]) in self.PF:
-                        for v in V:
+                        for v in self.V:
                             if self.p != 0:
                                 grad_a = (alpha - 1) * self.E[u,i] * ((self.p * self.R_train_ui[v, i] - self.q)/(self.p * self.p))
                                 self.A[v, u, k] -= lr_a * grad_a
@@ -111,7 +110,7 @@ class baseline_tensor():
                                     self.A[v, u, k] = 0
                                 elif self.A[v, u, k] > 1:
                                     self.A[v, u, k] = 1
-                print self.test(alpha)
+            print self.test(alpha)
     
     def test(self, alpha):
         error = 0
