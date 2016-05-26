@@ -51,7 +51,8 @@ class baseline_tensor():
         trust_u = self.W[u]
         return np.intersect1d(rat_u, trust_u)
 
-    def calculateRcap(self, u, i):
+    def calculateRcap(self, u, i, alpha):
+        cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
         # First part of Rcap
         n1 = 0
         d1 = 0
@@ -71,9 +72,12 @@ class baseline_tensor():
                     d2 += np.sum(self.A[v, u, k])
         if d2 != 0:
             Rcap += (1 - alpha) * (n2/d2)
+        # Defining p and q
+        self.p = d2
+        self.q = n2
         return Rcap
 
-    def model(self, alpha = 0.1, l = 0.1, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 1):
+    def model(self, alpha = 0.1, l = 0.1, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 10):
         # Optimization Routine
         self.Rcap = np.zeros_like(self.R_train_ui)
         cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
@@ -82,37 +86,40 @@ class baseline_tensor():
             cost = self.calc_cost(l)
             for key in self.R_train_ui:
                 u, i = key
-                Rcap = calculateRcap(u, i)
-                # Defining E, p and q
+                Rcap = self.calculateRcap(u, i, alpha)
+                # Defining E
                 self.E[u, i] = self.R_train_ui[u, i] - Rcap
-                p = d2
-                q = n2
                 # Updating C
                 grad_c = -alpha * self.E[u, i] + l * self.C[i]
                 self.C[i] -= lr_c * grad_c
                 # Updating B
-                grad_b = -alpha * self.E[u, i] + l * (self.B[u, :]/d1)
+                d = 0
+                for k in xrange(self.n_cat):
+                    if (i,cat_map[k]) in self.PF:
+                        d += 1
+                grad_b = -alpha * self.E[u, i] + l * (self.B[u, :]/d)
                 self.B[u, :] -= lr_b * grad_b
                 # Updating A
+                V = self.getNui(u, i)
                 for k in xrange(self.n_cat):
                     if (i,cat_map[k]) in self.PF:
                         for v in V:
-                            if p != 0:
-                                grad_a = (alpha - 1) * self.E[u,i] * ((p * self.R_train_ui[v, i] - q)/(p * p))
+                            if self.p != 0:
+                                grad_a = (alpha - 1) * self.E[u,i] * ((self.p * self.R_train_ui[v, i] - self.q)/(self.p * self.p))
                                 self.A[v, u, k] -= lr_a * grad_a
                                 if self.A[v, u, k] < 0:
                                     self.A[v, u, k] = 0
                                 elif self.A[v, u, k] > 1:
                                     self.A[v, u, k] = 1
-                print test()
+                print self.test(alpha)
     
-    def test(self):
+    def test(self, alpha):
         error = 0
         U = 0
         for key in self.R_test_ui:
             U += 1
             u, i = key
-            R_Rcap = R[u, i] - calculateRcap[u, i]
+            R_Rcap = self.R_test_ui[u, i] - self.calculateRcap(u, i, alpha)
             error += R_Rcap * R_Rcap
         return math.sqrt(error/U)
         
