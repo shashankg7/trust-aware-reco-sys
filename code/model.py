@@ -48,7 +48,7 @@ class baseline_tensor():
         # Users who have rated product i
         rat_u = self.R_train[np.where(self.R_train[:, 1] == i), 0]
         # Users trusted by u
-        trust_u = self.W[u]
+        trust_u = self.W[np.where(self.W[:, 0] == u),1]
         return np.intersect1d(rat_u, trust_u)
 
     def calculateRcap(self, u, i, alpha):
