@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 
+from __future__ import print_function
 import numpy as np
 from data_handler import data_handler
 import tables as tb
@@ -25,10 +26,14 @@ class baseline_tensor():
         self.R_test_ui = dict(zip(zip(self.R_test[:, 0], self.R_test[:, 1]), self.R_test[:, 3]))
         # Initializing parameters to be estimated
         #self.A = self.createA(self.n_users + 1, self.n_cat + 1)
-        self.A = np.random.rand(self.n_users + 1, self.n_users + 1, self.n_cat)
+        self.A = np.zeros((self.n_users + 1, self.n_users + 1, self.n_cat))
+        for u, v in self.W:
+            self.A[u, v, :] = 1
         self.B = np.random.rand(self.n_users + 1, self.n_cat)
         self.C = np.random.rand(self.n_prod + 1)
         self.E = self.R_train_ui
+        self.V = {}
+        self.getNui()
 
     def createA(self, n, c):
         f = tb.open_file('A.h5', 'w')
@@ -43,13 +48,29 @@ class baseline_tensor():
         cost += l*(np.vdot(self.B, self.B) + np.vdot(self.C, self.C))
         return cost
 
-    def getNui(self, u, i):
+    def getNui(self):
         # Generates Users who are trusted by user u and have rated product i
-        # Users who have rated product i
-        rat_u = self.R_train[np.where(self.R_train[:, 1] == i), 0]
-        # Users trusted by u
-        trust_u = self.W[np.where(self.W[:, 0] == u),1]
-        return np.intersect1d(rat_u, trust_u)
+        sz = len(self.R_train_ui) + len(self.R_test_ui)
+        cnt = 1
+        for u, i in self.R_train_ui:
+            if i%5 == 0:
+                print("\r", cnt," of ", sz, end='')
+            cnt += 1
+            # Users who have rated product i
+            rat_u = self.R_train[np.where(self.R_train[:, 1] == i), 0]
+            # Users trusted by u
+            trust_u = self.W[np.where(self.W[:, 0] == u),1]
+            self.V[u, i] = np.intersect1d(rat_u, trust_u)
+        
+        for u, i in self.R_test_ui:
+            if i%5 == 0:
+                print("\r", cnt," of ", sz, end='')
+            cnt += 1
+            # Users who have rated product i
+            rat_u = self.R_train[np.where(self.R_train[:, 1] == i), 0]
+            # Users trusted by u
+            trust_u = self.W[np.where(self.W[:, 0] == u),1]
+            self.V[u, i] = np.intersect1d(rat_u, trust_u)
 
     def calculateRcap(self, u, i, alpha):
         cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
@@ -64,10 +85,9 @@ class baseline_tensor():
         # Second part of Rcap
         n2 = 0
         d2 = 0
-        self.V = self.getNui(u, i)
         for k in xrange(self.n_cat):
             if((i,cat_map[k]) in self.PF):
-                for v in self.V:
+                for v in self.V[u, i]:
                     n2 += self.R_train_ui[v, i] * self.A[v, u, k]
                     d2 += np.sum(self.A[v, u, k])
         if d2 != 0:
@@ -77,15 +97,14 @@ class baseline_tensor():
         self.q = n2
         return Rcap
 
-    def model(self, alpha = 0.3, l = 0.05, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 10):
+    def model(self, alpha = 0.1, l = 0.05, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 10):
         # Optimization Routine
         self.Rcap = np.zeros_like(self.R_train_ui)
         cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
         for it in xrange(n_it):
-            print it
             cost = self.calc_cost(l)
-            for key in self.R_train_ui:
-                u, i = key
+            print(it, cost)
+            for u, i in self.R_train_ui:
                 Rcap = self.calculateRcap(u, i, alpha)
                 # Defining E
                 self.E[u, i] = self.R_train_ui[u, i] - Rcap
@@ -102,7 +121,7 @@ class baseline_tensor():
                 # Updating A
                 for k in xrange(self.n_cat):
                     if (i,cat_map[k]) in self.PF:
-                        for v in self.V:
+                        for v in self.V[u, i]:
                             if self.p != 0:
                                 grad_a = (alpha - 1) * self.E[u,i] * ((self.p * self.R_train_ui[v, i] - self.q)/(self.p * self.p))
                                 self.A[v, u, k] -= lr_a * grad_a
@@ -110,7 +129,7 @@ class baseline_tensor():
                                     self.A[v, u, k] = 0
                                 elif self.A[v, u, k] > 1:
                                     self.A[v, u, k] = 1
-            print self.test(alpha)
+            print(self.test(alpha))
     
     def test(self, alpha):
         error = 0
