@@ -10,7 +10,8 @@ class baseline_tensor():
 
     def __init__(self):
         # Loading matrices from given data
-        data = data_handler("../data/rating_with_timestamp.mat", "../data/trust.mat")
+        #data = data_handler("../data/rating_with_timestamp.mat", "../data/trust.mat")
+        data = data_handler("../data/ciao/rating_with_timestamp.mat", "../data/ciao/trust.mat")
         self.R_train, self.R_test, self.W, self.PF, self.mu = data.load_matrices()
         # Getting unique users and products used in Training data
         self.prod = np.unique(self.R_train[:, 1])
@@ -32,7 +33,12 @@ class baseline_tensor():
         self.C = np.random.rand(self.n_prod + 1)
         self.E = self.R_train_ui
         self.V = {}
+        #self.getNui()
         self.getNuiFromData()
+        '''
+        self.R_train_ui = {x:self.R_train_ui[x] for x in self.R_train_ui if x in self.V}
+        self.R_test_ui = {x:self.R_test_ui[x] for x in self.R_test_ui if x in self.V}
+        '''
 
     def createA(self, n, c):
         f = tb.open_file('A.h5', 'w')
@@ -48,7 +54,8 @@ class baseline_tensor():
         return cost
 
     def getNuiFromData(self):
-        with open('../data/nui') as f:
+        #with open('../data/nui') as f:
+        with open('../data/ciao/ciaonui') as f:
             content = f.readlines()
             for line in content:
                 line = line.split('\n')[0]
@@ -65,16 +72,19 @@ class baseline_tensor():
             # Users trusted by u
             trust_u = self.W[np.where(self.W[:, 0] == u),1]
             self.V[u, i] = np.intersect1d(rat_u, trust_u)
-        
+            print u,i,self.V[u, i]
+
         for u, i in self.R_test_ui:
             # Users who have rated product i
             rat_u = self.R_train[np.where(self.R_train[:, 1] == i), 0]
             # Users trusted by u
             trust_u = self.W[np.where(self.W[:, 0] == u),1]
             self.V[u, i] = np.intersect1d(rat_u, trust_u)
+            print u,i,self.V[u, i]
 
     def calculateRcap(self, u, i, alpha):
-        cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
+        #cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
+        cat_map = {0:8, 1:14, 2:17, 3:19, 4:23, 5:24}
         # First part of Rcap
         n1 = 0
         d1 = 0
@@ -82,26 +92,27 @@ class baseline_tensor():
             if (i,cat_map[k]) in self.PF:
                 n1 += (self.mu[k] + self.B[u, k])
                 d1 += 1
-        Rcap = alpha * (n1/d1 + self.C[i])
+        Rcap = alpha * ((n1/d1) + self.C[i])
         # Second part of Rcap
         n2 = 0
         d2 = 0
         for k in xrange(self.n_cat):
             if((i,cat_map[k]) in self.PF):
                 for v in self.V[u, i]:
-                    n2 += self.R_train_ui[v, i] * self.A[v, u, k]
-                    d2 += np.sum(self.A[v, u, k])
+                    n2 += (self.R_train_ui[v, i] * self.A[v, u, k])
+                    d2 += self.A[v, u, k]
         if d2 != 0:
-            Rcap += (1 - alpha) * (n2/d2)
+            Rcap += ((1 - alpha) * (n2/d2))
         # Defining p and q
         self.p = d2
         self.q = n2
         return Rcap
 
-    def model(self, alpha = 0.1, l = 0.05, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 100):
+    def model(self, alpha = 0.7, l = 0.2, lr_a = 0.1, lr_b = 0.1, lr_c = 0.1, n_it = 100):
         # Optimization Routine
         self.Rcap = np.zeros_like(self.R_train_ui)
-        cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
+        #cat_map = {0:7, 1:8, 2:9, 3:10, 4:11, 5:19}
+        cat_map = {0:8, 1:14, 2:17, 3:19, 4:23, 5:24}
         for it in xrange(n_it):
             cost = self.calc_cost(l)
             for u, i in self.R_train_ui:
@@ -109,22 +120,24 @@ class baseline_tensor():
                 # Defining E
                 self.E[u, i] = self.R_train_ui[u, i] - Rcap
                 # Updating C
-                grad_c = -alpha * self.E[u, i] + l * self.C[i]
-                self.C[i] -= lr_c * grad_c
+                grad_c = (-alpha * self.E[u, i]) + (l * self.C[i])
+                self.C[i] -= (lr_c * grad_c)
                 # Updating B
                 d = 0
                 for k in xrange(self.n_cat):
                     if (i,cat_map[k]) in self.PF:
                         d += 1
-                grad_b = -alpha * self.E[u, i] + l * (self.B[u, :]/d)
-                self.B[u, :] -= lr_b * grad_b
+                grad_b = (-alpha * self.E[u, i]) + (l * (self.B[u, :]/d))
+                pdb.set_trace()
+                #grad_b = -alpha * (self.E[u, i]/d) + l * self.B[u, :]
+                self.B[u, :] -= (lr_b * grad_b)
                 # Updating A
                 for k in xrange(self.n_cat):
                     if (i,cat_map[k]) in self.PF:
                         for v in self.V[u, i]:
                             if self.p != 0:
-                                grad_a = (alpha - 1) * self.E[u,i] * ((self.p * self.R_train_ui[v, i] - self.q)/(self.p * self.p))
-                                self.A[v, u, k] -= lr_a * grad_a
+                                grad_a = ((alpha - 1) * self.E[u,i] ) * (((self.p * self.R_train_ui[v, i]) - self.q)/(self.p * self.p))
+                                self.A[v, u, k] -= (lr_a * grad_a)
                                 if self.A[v, u, k] < 0:
                                     self.A[v, u, k] = 0
                                 elif self.A[v, u, k] > 1:
@@ -138,7 +151,7 @@ class baseline_tensor():
             U += 1
             u, i = key
             R_Rcap = self.R_test_ui[u, i] - self.calculateRcap(u, i, alpha)
-            error += R_Rcap * R_Rcap
+            error += (R_Rcap * R_Rcap)
         return math.sqrt(error/U)
         
 if __name__ == "__main__":
