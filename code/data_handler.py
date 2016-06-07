@@ -23,16 +23,16 @@ class data_handler():
         R = loadmat(f1)
         W = loadmat(f2)
         # Converting R and W from dictionary to array
-        #R = R['rating_with_timestamp']
-        R = R['rating']
+        R = R['rating_with_timestamp']
+        #R = R['rating']
         W = W['trust']
         self.n_users = max(R[:, 0])
         self.n_prod = max(R[:, 1])
         # Selecting entries with the 6 categories given in the paper
-        #cat_id = [7, 8, 9, 10, 11, 19]
-        #cat_map = {7:0, 8:1, 9:2, 10:3, 11:4, 19:5}
-        cat_id = [8, 14, 17, 19, 23, 24]
-        cat_map = {8:0, 14:1, 17:2, 19:3, 23:4, 24:5}
+        cat_id = [7, 8, 9, 10, 11, 19]
+        cat_map = {7:0, 8:1, 9:2, 10:3, 11:4, 19:5}
+        #cat_id = [8, 14, 17, 19, 23, 24]
+        #cat_map = {8:0, 14:1, 17:2, 19:3, 23:4, 24:5}
         R = R[np.in1d(R[:, 2],cat_id)]
         R = R[R[:, 5].argsort()]
         R_size = R.shape[0]
